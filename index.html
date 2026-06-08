@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>役員変更 楽楽見積ウィザード</title>
+<style>
+:root{--main:#1a2744;--accent:#2563eb;--accent-light:#dbeafe;--sub:#64748b;--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--warn:#dc2626;--warn-bg:#fef2f2}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP','Hiragino Sans',sans-serif;background:var(--bg);color:var(--main);font-size:14px;line-height:1.7}
+.wrap{max-width:640px;margin:0 auto;padding:24px 16px}
+.header{text-align:center;margin-bottom:24px}
+.title{font-size:18px;font-weight:700;margin-bottom:4px}
+.subtitle{font-size:12px;color:var(--sub)}
+.progress{display:flex;gap:4px;margin-bottom:24px}
+.dot{flex:1;height:4px;border-radius:2px;background:var(--border);transition:all .3s}
+.dot.active{background:var(--accent)}
+.dot.done{background:var(--accent-light)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.q-label{font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px;letter-spacing:1px}
+.q-text{font-size:16px;font-weight:600;margin-bottom:16px}
+.option{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;border:1px solid var(--border);cursor:pointer;margin-bottom:6px;transition:all .15s}
+.option:hover{border-color:var(--accent)}
+.option.sel{border:2px solid var(--accent);background:var(--accent-light);font-weight:600}
+.radio-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;transition:all .15s}
+.option.sel .radio-dot{border:5px solid var(--accent)}
+.check-box{width:18px;height:18px;border-radius:4px;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;transition:all .15s}
+.option.sel .check-box{border:none;background:var(--accent)}
+.opt-label{font-size:14px}
+.opt-sub{font-size:11px;color:var(--sub)}
+.section-title{font-size:11px;color:var(--sub);font-weight:600;margin-bottom:6px;letter-spacing:1px}
+.stepper{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.stepper-label{font-size:13px;min-width:100px}
+.stepper-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.stepper-btn:hover{background:var(--accent-light)}
+.stepper-val{font-size:20px;font-weight:700;min-width:36px;text-align:center}
+.stepper-unit{font-size:12px;color:var(--sub)}
+.nav{display:flex;gap:8px;justify-content:space-between}
+.btn{padding:10px 24px;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;border:1px solid var(--border);background:var(--card);color:var(--main)}
+.btn.primary{border:none;background:var(--accent);color:#fff}
+.btn:disabled{opacity:.4;cursor:default}
+.calc-box{background:#f1f5f9;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:13px;line-height:2}
+.ok-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;font-size:13px;color:#166534}
+.warn-box{background:var(--warn-bg);border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:13px;color:var(--warn)}
+.shortage{color:var(--warn);font-weight:700}
+.summary-box{background:var(--accent-light);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px}
+.result-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px}
+.result-cat{font-size:11px;color:var(--sub);font-weight:600;margin-bottom:2px;letter-spacing:.5px}
+.result-total{display:flex;justify-content:space-between;padding:12px 0;font-weight:700;font-size:16px;border-top:2px solid var(--main);margin-top:8px}
+.result-sub{display:flex;justify-content:space-between;padding:6px 0;font-weight:400;font-size:13px;border-top:1px solid var(--border)}
+.note{font-size:11px;color:var(--sub);margin-top:8px;line-height:1.8}
+.inner-box{margin-top:16px;padding:12px 16px;background:#f1f5f9;border-radius:8px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+const PRICE={base:30000,minutesShareholders:10000,minutesBoard:10000,minutesDirectorDecision:5000,appointPerPerson:3000,auditorAppointPerPerson:3000,resignPerPerson:2000,repChange:10000,organChange:20000,attachmentDeath:5000,registrationFee:20000,regTaxUnder1oku:10000,regTaxOver1oku:30000,certCopy:1180,inspectionFee:660};
+const fmt=n=>n.toLocaleString('ja-JP');
+const organLabels=["取締役会あり＋監査役あり","取締役会あり＋監査役なし","取締役会なし＋監査役あり","取締役会なし＋監査役なし"];
+
+let state={
+  step:0,
+  q0_organ:null,q0_currentDirectors:3,q0_currentAuditors:1,
+  q1_changes:[],
+  q2a_directors:0,q2a_auditors:0,q2a_hasRep:false,
+  q2b_reason:null,q2b_directorResign:0,q2b_auditorResign:0,
+  q3_successor:null,
+  q4_repMethod:null,
+  q5_shortage:null,q5_directorShortage:false,q5_auditorShortage:false,
+  q5_remainDirectors:0,q5_remainAuditors:0,q5_resolution:null,
+  q6_extras:[],capitalOver1oku:false,
+};
+
+function u(k,v){state[k]=v;render();}
+function hasBoard(){return state.q0_organ===0||state.q0_organ===1;}
+function hasAuditor(){return state.q0_organ===0||state.q0_organ===2;}
+function hasAppoint(){return state.q1_changes.some(c=>["就任","改選","代表変更"].includes(c));}
+function hasResign(){return state.q1_changes.includes("退任");}
+function hasKaisen(){return state.q1_changes.includes("改選");}
+function hasRepChange(){return state.q1_changes.includes("代表変更");}
+function needsCheck(){return hasResign()||hasKaisen();}
+function totalResignCount(){return(state.q2b_directorResign||0)+(state.q2b_auditorResign||0);}
+
+function getSteps(){
+  const f=["q0","q1"];
+  if(hasAppoint())f.push("q2a");
+  if(hasResign())f.push("q2b");
+  if(hasResign())f.push("q3");
+  if(hasRepChange()||hasAppoint())f.push("q4");
+  f.push("q5","q6","result");
+  return f;
+}
+
+function canGoNext(){
+  const cs=getSteps()[state.step];
+  switch(cs){
+    case"q0":return state.q0_organ!==null;
+    case"q1":return state.q1_changes.length>0;
+    case"q2a":return true;
+    case"q2b":return state.q2b_reason!==null&&totalResignCount()>0;
+    case"q3":return state.q3_successor!==null;
+    case"q4":return state.q4_repMethod!==null;
+    case"q5":return state.q5_shortage!==null&&(state.q5_shortage===false||state.q5_resolution!==null);
+    case"q6":return true;
+    default:return false;
+  }
+}
+
+function calcShortage(){
+  const a=state;
+  let remainDir,remainAud;
+  if(hasKaisen()){
+    remainDir=a.q2a_directors||0;
+    remainAud=hasAuditor()?(a.q2a_auditors||0):a.q0_currentAuditors;
+  }else if(hasResign()){
+    remainDir=(a.q0_currentDirectors||0)-(a.q2b_directorResign||0)+(a.q2a_directors||0);
+    remainAud=(a.q0_currentAuditors||0)-(a.q2b_auditorResign||0)+(a.q2a_auditors||0);
+  }else{
+    remainDir=(a.q0_currentDirectors||0)+(a.q2a_directors||0);
+    remainAud=(a.q0_currentAuditors||0)+(a.q2a_auditors||0);
+  }
+  const minDir=hasBoard()?3:1;
+  const minAud=hasAuditor()?1:0;
+  const dirShort=remainDir<minDir;
+  const audShort=remainAud<minAud;
+  return{shortage:dirShort||audShort,dirShort,audShort,remainDir,remainAud,minDir,minAud};
+}
+
+function goNext(){
+  const steps=getSteps();
+  if(steps[state.step+1]==="q5"){
+    if(needsCheck()){
+      const r=calcShortage();
+      state.q5_shortage=r.shortage;
+      state.q5_directorShortage=r.dirShort;
+      state.q5_auditorShortage=r.audShort;
+      state.q5_remainDirectors=r.remainDir;
+      state.q5_remainAuditors=r.remainAud;
+      if(!r.shortage)state.q5_resolution=null;
+    }else{
+      state.q5_shortage=false;state.q5_directorShortage=false;state.q5_auditorShortage=false;state.q5_resolution=null;
+    }
+  }
+  state.step=Math.min(state.step+1,steps.length-1);
+  render();
+}
+function goBack(){state.step=Math.max(state.step-1,0);render();}
+function reset(){
+  state={step:0,q0_organ:null,q0_currentDirectors:3,q0_currentAuditors:1,q1_changes:[],q2a_directors:0,q2a_auditors:0,q2a_hasRep:false,q2b_reason:null,q2b_directorResign:0,q2b_auditorResign:0,q3_successor:null,q4_repMethod:null,q5_shortage:null,q5_directorShortage:false,q5_auditorShortage:false,q5_remainDirectors:0,q5_remainAuditors:0,q5_resolution:null,q6_extras:[],capitalOver1oku:false};
+  render();
+}
+
+function radioHTML(name,options,selected,onChangeKey){
+  return options.map(o=>`<div class="option${selected===o.value?' sel':''}" onclick="u('${onChangeKey}','${o.value}')"><div class="radio-dot"></div><div><div class="opt-label">${o.label}</div>${o.sub?`<div class="opt-sub">${o.sub}</div>`:''}</div></div>`).join('');
+}
+
+function stepperHTML(label,key,min,max){
+  const v=state[key]||0;
+  return `<div class="stepper"><div class="stepper-label">${label}</div><button class="stepper-btn" onclick="u('${key}',Math.max(${min},${v}-1))">−</button><div class="stepper-val">${v}</div><button class="stepper-btn" onclick="u('${key}',Math.min(${max},${v}+1))">+</button><div class="stepper-unit">名</div></div>`;
+}
+
+function renderStep(){
+  const steps=getSteps();
+  const cs=steps[state.step];
+  switch(cs){
+    case"q0":{
+      let inner='';
+      if(state.q0_organ!==null){
+        inner=`<div class="inner-box"><div class="section-title">現在の役員人数</div>${stepperHTML('取締役','q0_currentDirectors',1,20)}${hasAuditor()?stepperHTML('監査役','q0_currentAuditors',0,20):''}<div style="font-size:11px;color:var(--sub);margin-top:4px">※ 代表取締役を含む人数を入力してください</div></div>`;
+      }
+      return `<div class="q-label">Q0 ─ 基礎情報</div><div class="q-text">現在の機関設計を教えてください</div>`+
+        [0,1,2,3].map(i=>`<div class="option${state.q0_organ===i?' sel':''}" onclick="selectOrgan(${i})"><div class="radio-dot"></div><div class="opt-label">${organLabels[i]}</div></div>`).join('')+inner;
+    }
+    case"q1":
+      return `<div class="q-label">Q1 ─ 変更内容</div><div class="q-text">今回行いたい変更を選択してください</div><div style="font-size:12px;color:var(--sub);margin-bottom:8px">複数選択可</div>`+
+        ["就任","退任","改選","代表変更"].map((v,i)=>{
+          const labels=["① 就任（新たに役員を選任）","② 退任（辞任・死亡・解任）","③ 任期満了による改選","④ 代表取締役の変更"];
+          const sel=state.q1_changes.includes(v);
+          return `<div class="option${sel?' sel':''}" onclick="toggleChange('${v}')"><div class="check-box">${sel?'✓':''}</div><div class="opt-label">${labels[i]}</div></div>`;
+        }).join('');
+    case"q2a":
+      return `<div class="q-label">Q2A ─ 就任・重任の対象</div><div class="q-text">就任・重任する役員を教えてください</div><div class="section-title">取締役</div>${stepperHTML('取締役','q2a_directors',0,20)}${hasAuditor()?`<div class="section-title">監査役</div>${stepperHTML('監査役','q2a_auditors',0,20)}`:''}<div style="margin-top:8px"><div class="option${state.q2a_hasRep?' sel':''}" onclick="u('q2a_hasRep',${!state.q2a_hasRep})"><div class="check-box">${state.q2a_hasRep?'✓':''}</div><div class="opt-label">代表取締役の選定を含む</div></div></div>`;
+    case"q2b":{
+      let summary='';
+      if(totalResignCount()>0){
+        summary=`<div style="font-size:12px;color:var(--sub);background:#f1f5f9;border-radius:8px;padding:8px 12px;margin-top:8px">退任合計：${totalResignCount()}名（取締役${state.q2b_directorResign||0}名${hasAuditor()?`・監査役${state.q2b_auditorResign||0}名`:''}）</div>`;
+      }
+      return `<div class="q-label">Q2B ─ 退任の詳細</div><div class="q-text">退任する役員を教えてください</div><div class="section-title">退任理由</div>${radioHTML('q2b_reason',[{value:'辞任',label:'辞任'},{value:'死亡',label:'死亡'},{value:'解任',label:'解任'}],state.q2b_reason,'q2b_reason')}<div class="section-title" style="margin-top:12px">退任人数（役職別）</div>${stepperHTML('取締役','q2b_directorResign',0,state.q0_currentDirectors)}${hasAuditor()?stepperHTML('監査役','q2b_auditorResign',0,state.q0_currentAuditors):''}${summary}`;
+    }
+    case"q3":
+      return `<div class="q-label">Q3 ─ 後任者</div><div class="q-text">退任後の後任者について教えてください</div>${radioHTML('q3_successor',[{value:'する',label:'① 後任者を選任する',sub:'→ Q2Aの就任人数に含めてください'},{value:'しない',label:'② 選任しない（未定を含む）',sub:'※ 人数要件の確認が必要になります'}],state.q3_successor,'q3_successor')}`;
+    case"q4":
+      return `<div class="q-label">Q4 ─ 代表取締役</div><div class="q-text">代表取締役の変更方法を教えてください</div>${radioHTML('q4_repMethod',[{value:'新任',label:'① 新たに代表取締役を選定'},{value:'退任＋新任',label:'② 現代表が退任し、新代表を選定'},{value:'変更なし',label:'③ 代表取締役に変更なし'}],state.q4_repMethod,'q4_repMethod')}${hasBoard()?'<div style="font-size:11px;color:var(--sub);margin-top:8px">※ 取締役会設置会社のため、取締役会議事録が必要です</div>':''}`;
+    case"q5":return renderQ5();
+    case"q6":{
+      const extras=state.q6_extras;
+      return `<div class="q-label">Q6 ─ その他</div><div class="q-text">その他の変更はありますか？</div>`+
+        ["商号変更","本店移転"].map(v=>{
+          const sel=extras.includes(v);
+          return `<div class="option${sel?' sel':''}" onclick="toggleExtra('${v}')"><div class="check-box">${sel?'✓':''}</div><div class="opt-label">${v}あり</div></div>`;
+        }).join('')+
+        `<div style="margin-top:12px"><div class="section-title">資本金</div><div class="option${state.capitalOver1oku?' sel':''}" onclick="u('capitalOver1oku',${!state.capitalOver1oku})"><div class="check-box">${state.capitalOver1oku?'✓':''}</div><div class="opt-label">資本金が1億円を超える</div></div></div><div style="font-size:11px;color:var(--sub)">※ 商号変更・本店移転は別途お見積りとなります</div>`;
+    }
+    case"result":return renderResult();
+  }
+}
+
+function renderQ5(){
+  const a=state;const shortage=a.q5_shortage;
+  const minDir=hasBoard()?3:1;const minAud=hasAuditor()?1:0;
+  let html=`<div class="q-label">Q5 ─ 人数要件チェック</div><div class="q-text">変更後の人数要件</div>`;
+  if(needsCheck()){
+    html+=`<div class="calc-box"><div style="font-weight:600;margin-bottom:4px">▼ 計算結果</div>`;
+    if(hasKaisen()){
+      html+=`<div>取締役：改選後 <strong>${a.q2a_directors||0}名</strong>（最低 ${minDir}名）${a.q5_directorShortage?'<span class="shortage"> ← 不足</span>':''}</div>`;
+      if(hasAuditor())html+=`<div>監査役：改選後 <strong>${a.q2a_auditors||0}名</strong>（最低 ${minAud}名）${a.q5_auditorShortage?'<span class="shortage"> ← 不足</span>':''}</div>`;
+      html+=`<div style="font-size:11px;color:var(--sub);margin-top:4px">※ 改選のため、Q2Aの人数＝変更後の人数として判定</div>`;
+    }else{
+      html+=`<div>取締役：現在 ${a.q0_currentDirectors}名 − 退任 ${a.q2b_directorResign||0}名 + 就任 ${a.q2a_directors||0}名 ＝ <strong>${a.q5_remainDirectors}名</strong>（最低 ${minDir}名）${a.q5_directorShortage?'<span class="shortage"> ← 不足</span>':''}</div>`;
+      if(hasAuditor())html+=`<div>監査役：現在 ${a.q0_currentAuditors}名 − 退任 ${a.q2b_auditorResign||0}名 + 就任 ${a.q2a_auditors||0}名 ＝ <strong>${a.q5_remainAuditors}名</strong>（最低 ${minAud}名）${a.q5_auditorShortage?'<span class="shortage"> ← 不足</span>':''}</div>`;
+    }
+    html+=`</div>`;
+  }
+  if(shortage===false)html+=`<div class="ok-box">✓ 人数要件を満たしています。問題ありません。</div>`;
+  if(shortage===true){
+    html+=`<div class="warn-box">⚠ 変更後の人数が法定要件を下回ります。`;
+    if(a.q5_directorShortage)html+=`<div style="margin-top:4px">・取締役：残 ${a.q5_remainDirectors}名（${hasBoard()?'取締役会設置 → 3名以上必須':'最低1名必須'}）</div>`;
+    if(a.q5_auditorShortage)html+=`<div>・監査役：残 ${a.q5_remainAuditors}名（監査役設置 → 1名以上必須）</div>`;
+    html+=`</div><div style="font-size:13px;font-weight:600;margin-bottom:8px">対応方法を選択してください</div>`;
+    html+=radioHTML('q5_resolution',[{value:'後任選任',label:'① 後任者を選任する'},{value:'機関設計見直し',label:'② 機関設計を見直す',sub:hasBoard()&&a.q5_directorShortage?'取締役会廃止等':a.q5_auditorShortage?'監査役廃止等':'取締役会廃止・監査役廃止等'}],state.q5_resolution,'q5_resolution');
+  }
+  if(!needsCheck())html+=`<div class="ok-box">✓ 就任のみのため、人数要件のチェックは不要です。</div>`;
+  return html;
+}
+
+function calcEstimate(){
+  const items=[];const a=state;
+  items.push({cat:"基本報酬",name:"役員変更手続一式",fee:PRICE.base,tax:0});
+  items.push({cat:"議事録作成",name:"株主総会議事録",fee:PRICE.minutesShareholders,tax:0});
+  if(hasBoard())items.push({cat:"議事録作成",name:"取締役会議事録",fee:PRICE.minutesBoard,tax:0});
+  else items.push({cat:"議事録作成",name:"取締役決定書",fee:PRICE.minutesDirectorDecision,tax:0});
+  if(hasAppoint()||hasKaisen()){
+    if(a.q2a_directors>0)items.push({cat:"加算",name:`取締役 就任・重任（${a.q2a_directors}名）`,fee:PRICE.appointPerPerson*a.q2a_directors,tax:0});
+    if(a.q2a_auditors>0)items.push({cat:"加算",name:`監査役 就任（${a.q2a_auditors}名）`,fee:PRICE.auditorAppointPerPerson*a.q2a_auditors,tax:0});
+  }
+  if(hasResign()){
+    if(a.q2b_directorResign>0)items.push({cat:"加算",name:`取締役 退任（${a.q2b_directorResign}名）`,fee:PRICE.resignPerPerson*a.q2b_directorResign,tax:0});
+    if(a.q2b_auditorResign>0)items.push({cat:"加算",name:`監査役 退任（${a.q2b_auditorResign}名）`,fee:PRICE.resignPerPerson*a.q2b_auditorResign,tax:0});
+    if(a.q2b_reason==="死亡")items.push({cat:"加算",name:"添付書類対応（死亡届等）",fee:PRICE.attachmentDeath,tax:0});
+  }
+  if(a.q4_repMethod==="新任"||a.q4_repMethod==="退任＋新任"||a.q2a_hasRep)items.push({cat:"加算",name:"代表取締役変更",fee:PRICE.repChange,tax:0});
+  if(a.q5_resolution==="機関設計見直し")items.push({cat:"加算",name:"機関設計変更（取締役会廃止等）",fee:PRICE.organChange,tax:0});
+  items.push({cat:"登記申請",name:"登記申請代理",fee:PRICE.registrationFee,tax:0});
+  const regTax=a.capitalOver1oku?PRICE.regTaxOver1oku:PRICE.regTaxUnder1oku;
+  items.push({cat:"実費",name:`登録免許税（資本金${a.capitalOver1oku?"1億超":"1億以下"}）`,fee:0,tax:regTax});
+  items.push({cat:"実費",name:"謄本・閲覧等",fee:0,tax:PRICE.certCopy+PRICE.inspectionFee});
+  if(a.q6_extras.includes("商号変更"))items.push({cat:"別途見積",name:"商号変更 ※別途ご案内",fee:0,tax:0,note:true});
+  if(a.q6_extras.includes("本店移転"))items.push({cat:"別途見積",name:"本店移転 ※別途ご案内",fee:0,tax:0,note:true});
+  const totalFee=items.reduce((s,i)=>s+i.fee,0);
+  const totalTax=items.reduce((s,i)=>s+i.tax,0);
+  return{items,totalFee,totalTax,total:totalFee+totalTax};
+}
+
+function renderResult(){
+  const est=calcEstimate();const a=state;
+  const grouped={};est.items.forEach(i=>{if(!grouped[i.cat])grouped[i.cat]=[];grouped[i.cat].push(i);});
+  let html=`<div style="font-size:16px;font-weight:700;margin-bottom:16px">📋 費用概算書</div>`;
+  html+=`<div class="summary-box"><div><strong>機関設計：</strong>${organLabels[a.q0_organ]}</div><div><strong>現在人数：</strong>取締役${a.q0_currentDirectors}名${hasAuditor()?`・監査役${a.q0_currentAuditors}名`:''}</div><div><strong>変更内容：</strong>${a.q1_changes.join('・')}</div>`;
+  if(needsCheck())html+=`<div><strong>変更後人数：</strong>取締役${a.q5_remainDirectors}名${hasAuditor()?`・監査役${a.q5_remainAuditors}名`:''}</div>`;
+  if(a.q5_resolution==="機関設計見直し")html+=`<div style="color:var(--warn);font-weight:600;margin-top:4px">⚠ 機関設計変更を含む</div>`;
+  html+=`</div>`;
+  for(const[cat,items]of Object.entries(grouped)){
+    html+=`<div style="margin-bottom:8px"><div class="result-cat">${cat}</div>`;
+    items.forEach(i=>{
+      html+=`<div class="result-row"><div style="flex:1">${i.name}</div><div style="text-align:right;min-width:80px;font-weight:500">${i.note?'─':(i.fee+i.tax>0?`¥${fmt(i.fee+i.tax)}`:'─')}</div></div>`;
+    });
+    html+=`</div>`;
+  }
+  html+=`<div class="result-sub"><span>報酬小計</span><span>¥${fmt(est.totalFee)}</span></div>`;
+  html+=`<div class="result-sub" style="border-top:none;padding-top:0"><span>実費小計</span><span>¥${fmt(est.totalTax)}</span></div>`;
+  html+=`<div class="result-total"><span>合計（税抜概算）</span><span style="color:var(--accent);font-size:20px">¥${fmt(est.total)}</span></div>`;
+  html+=`<div class="note">※ 本概算は簡易見積りです。正式なお見積りは別途ご案内いたします。<br>※ 消費税は含まれておりません。<br>${est.items.some(i=>i.note)?'※ 商号変更・本店移転等は別途お見積りとなります。<br>':''}</div>`;
+  html+=`<div style="text-align:center;margin-top:16px"><button class="btn" onclick="reset()" style="font-size:13px">最初からやり直す</button></div>`;
+  return html;
+}
+
+function selectOrgan(v){
+  state.q0_organ=v;
+  const board=(v===0||v===1);
+  const aud=(v===0||v===2);
+  if(board&&state.q0_currentDirectors<3)state.q0_currentDirectors=3;
+  if(aud&&state.q0_currentAuditors<1)state.q0_currentAuditors=1;
+  if(!aud)state.q0_currentAuditors=0;
+  render();
+}
+function toggleChange(v){
+  const idx=state.q1_changes.indexOf(v);
+  if(idx>=0)state.q1_changes.splice(idx,1);else state.q1_changes.push(v);
+  render();
+}
+function toggleExtra(v){
+  const idx=state.q6_extras.indexOf(v);
+  if(idx>=0)state.q6_extras.splice(idx,1);else state.q6_extras.push(v);
+  render();
+}
+
+function render(){
+  const steps=getSteps();const cs=steps[state.step];
+  const isResult=cs==="result";
+  const effCanNext=cs==="q5"&&!needsCheck()?true:canGoNext();
+
+  let html=`<div class="header"><div class="title">役員変更 楽楽見積ウィザード</div><div class="subtitle">司法書士法人名南経営</div></div>`;
+  html+=`<div class="progress">${steps.map((_,i)=>`<div class="dot${i===state.step?' active':''}${i<state.step?' done':''}"></div>`).join('')}</div>`;
+  html+=`<div class="card">${renderStep()}</div>`;
+  if(!isResult){
+    html+=`<div class="nav"><button class="btn" onclick="goBack()"${state.step===0?' disabled':''}>← 戻る</button><button class="btn primary" onclick="goNext()"${!effCanNext?' disabled':''}>${steps[state.step+1]==='result'?'見積を確認 →':'次へ →'}</button></div>`;
+  }
+  document.getElementById('app').innerHTML=html;
+}
+
+render();
+</script>
+</body>
+</html>
