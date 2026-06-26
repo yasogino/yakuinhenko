@@ -56,7 +56,7 @@ body{font-family:'Noto Sans JP','Hiragino Sans',sans-serif;background:var(--bg);
 <script>
 const P={base:30000,minSH:10000,minBD:10000,minDD:5000,apPP:3000,auPP:3000,rsPP:2000,rep:10000,org:20000,death:5000,regFee:20000,tax1:10000,tax2:30000,cert:1180,insp:660};
 const fmt=n=>n.toLocaleString('ja-JP');
-const OL=["取締役会あり＋監査役あり","取締役会あり＋監査役なし","取締役会なし＋監査役あり","取締役会なし＋監査役なし"];
+const OL=["取締役会あり＋監査役あり","（無効）","取締役会なし＋監査役あり","取締役会なし＋監査役なし"];
 
 const INIT={step:0,q0_organ:null,q0_cD:3,q0_cA:1,
   q1_changes:[],
@@ -206,7 +206,7 @@ function renderStep(){
         inner=`<div class="ib"><div class="st" style="margin-top:0">現在の役員人数</div>${stepper('取締役','q0_cD',1,20)}${hA()?stepper('監査役','q0_cA',0,20):''}<div style="font-size:11px;color:var(--sub);margin-top:4px">※ 代表取締役を含む人数</div></div>`;
       }
       return `<div class="ql">Q0 ─ 基礎情報</div><div class="qt">現在の機関設計を教えてください</div>`+
-        [0,1,2,3].map(i=>`<div class="op${S.q0_organ===i?' s':''}" onclick="selectOrgan(${i})"><div class="rd"></div><div class="ol">${OL[i]}</div></div>`).join('')+inner;
+        [0,2,3].map(i=>`<div class="op${S.q0_organ===i?' s':''}" onclick="selectOrgan(${i})"><div class="rd"></div><div class="ol">${OL[i]}</div></div>`).join('')+inner;
     }
     case"q1":
       return `<div class="ql">Q1 ─ 変更内容</div><div class="qt">今回行いたい変更を選択してください</div><div style="font-size:12px;color:var(--sub);margin-bottom:8px">複数選択可</div>`+
